@@ -1,0 +1,46 @@
+# EcomDash V2 Worker Dockerfile
+# ARQ worker for background job processing
+
+# Builder stage
+FROM python:3.11-slim as builder
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY pyproject.toml .
+RUN pip install --no-cache-dir build && \
+    pip wheel --no-cache-dir --wheel-dir /wheels .
+
+# Add ARQ dependency
+RUN pip wheel --no-cache-dir --wheel-dir /wheels arq
+
+# Production stage
+FROM python:3.11-slim as production
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --create-home --shell /bin/bash appuser
+
+# Install dependencies
+COPY --from=builder /wheels /wheels
+RUN pip install --no-cache-dir /wheels/*.whl && rm -rf /wheels
+
+# Copy application code
+COPY app/ app/
+
+# Switch to non-root user
+USER appuser
+
+# Health check via Redis ping
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python -c "import redis; r = redis.from_url('$REDIS_URL'); r.ping()"
+
+# Run ARQ worker
+CMD ["arq", "app.services.job_queue.WorkerSettings"]

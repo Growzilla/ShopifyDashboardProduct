@@ -1,0 +1,93 @@
+"""
+Centralized configuration management with Pydantic Settings.
+All environment variables are validated and typed.
+"""
+from functools import lru_cache
+from typing import List, Optional
+
+from pydantic import Field, PostgresDsn, RedisDsn, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    """Application settings loaded from environment variables."""
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore",
+    )
+
+    # Application
+    app_name: str = "EcomDash V2 API"
+    app_version: str = "2.0.0"
+    debug: bool = False
+    environment: str = Field(default="development", pattern="^(development|staging|production)$")
+
+    # Server
+    host: str = "0.0.0.0"
+    port: int = 8000
+    workers: int = 4
+
+    # Database
+    database_url: PostgresDsn
+    database_pool_size: int = 20
+    database_max_overflow: int = 10
+    database_echo: bool = False
+
+    # Redis (for caching and rate limiting)
+    redis_url: Optional[RedisDsn] = None
+
+    # Security
+    secret_key: str = Field(min_length=32)
+    encryption_key: str = Field(min_length=32)
+    jwt_algorithm: str = "HS256"
+    jwt_expiration_hours: int = 24
+
+    # CORS
+    allowed_origins: List[str] = ["http://localhost:3000"]
+
+    @field_validator("allowed_origins", mode="before")
+    @classmethod
+    def parse_origins(cls, v: str | List[str]) -> List[str]:
+        if isinstance(v, str):
+            return [origin.strip() for origin in v.split(",") if origin.strip()]
+        return v
+
+    # Shopify
+    shopify_api_key: str
+    shopify_api_secret: str
+    shopify_scopes: str = "read_products,read_orders,read_customers,read_inventory"
+    shopify_app_url: str
+
+    # OpenAI
+    openai_api_key: str
+    openai_model: str = "gpt-4-turbo-preview"
+
+    # Notifications
+    resend_api_key: Optional[str] = None
+    app_url: str = "https://ecomdash.onrender.com"
+
+    # Observability
+    sentry_dsn: Optional[str] = None
+    log_level: str = "INFO"
+    enable_metrics: bool = True
+
+    # Rate Limiting
+    rate_limit_requests: int = 100
+    rate_limit_period: int = 60
+
+    # Adaptive Scheduling Thresholds
+    traffic_threshold: int = 1000  # requests/hour to trigger early run
+    pending_threshold: int = 50  # pending submissions to trigger early run
+    analysis_batch_size: int = 100  # max submissions per batch run
+
+
+@lru_cache
+def get_settings() -> Settings:
+    """Get cached settings instance."""
+    return Settings()
+
+
+settings = get_settings()
