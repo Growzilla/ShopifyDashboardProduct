@@ -91,25 +91,22 @@ services:
     autoDeploy: true
 
   # ===========================================
-  # Frontend Static Site
+  # Frontend Web Service (React Router 7 SSR)
   # ===========================================
   - type: web
     name: ecomdash-frontend
-    runtime: static
-    buildCommand: cd frontend && npm ci && npm run build
-    staticPublishPath: ./frontend/build/client
+    runtime: docker
+    dockerfilePath: ./frontend/Dockerfile
+    dockerContext: ./frontend
+    region: oregon
+    plan: starter
     branch: main
     envVars:
+      - key: NODE_ENV
+        value: production
       - key: VITE_API_URL
         value: https://ecomdash-api.onrender.com
-    headers:
-      - path: /*
-        name: X-Frame-Options
-        value: SAMEORIGIN
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
+    healthCheckPath: /
     autoDeploy: true
 
   # ===========================================
