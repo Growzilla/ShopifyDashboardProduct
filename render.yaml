@@ -27,7 +27,7 @@ services:
       - key: REDIS_URL
         fromService:
           name: ecomdash-redis
-          type: redis
+          type: keyvalue
           property: connectionString
       - key: SECRET_KEY
         generateValue: true
@@ -78,7 +78,7 @@ services:
       - key: REDIS_URL
         fromService:
           name: ecomdash-redis
-          type: redis
+          type: keyvalue
           property: connectionString
       - key: SECRET_KEY
         sync: false
@@ -112,6 +112,16 @@ services:
         destination: /index.html
     autoDeploy: true
 
+  # ===========================================
+  # Redis Cache & Job Queue (KeyValue Store)
+  # ===========================================
+  - type: keyvalue
+    name: ecomdash-redis
+    region: oregon
+    plan: free  # Free tier - 25MB, Valkey-based, suitable for cache + job queue
+    maxmemoryPolicy: allkeys-lru  # LRU eviction for cache behavior
+    ipAllowList: []  # Internal access only (from Render services)
+
 databases:
   # ===========================================
   # PostgreSQL Database
@@ -123,15 +133,6 @@ databases:
     plan: starter  # $7/mo - 1GB storage, 256MB RAM
     ipAllowList: []  # Allow from all Render services
 
-  # ===========================================
-  # Redis Cache & Queue
-  # ===========================================
-  - name: ecomdash-redis
-    type: redis
-    region: oregon
-    plan: free  # Free tier - 25MB, suitable for job queue
-    maxmemoryPolicy: allkeys-lru
-    ipAllowList: []
 
 # ===========================================
 # Environment Groups
