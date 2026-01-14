@@ -61,9 +61,20 @@ class Settings(BaseSettings):
     shopify_scopes: str = "read_products,read_orders,read_customers,read_inventory"
     shopify_app_url: str
 
-    # OpenAI
-    openai_api_key: str
+    # OpenAI (Fallback - now optional)
+    openai_api_key: Optional[str] = None
     openai_model: str = "gpt-4-turbo-preview"
+
+    # DeepSeek via OpenRouter (Primary AI Provider)
+    openrouter_api_key: str
+    deepseek_model: str = "deepseek/deepseek-chat"
+    deepseek_reasoner_model: str = "deepseek/deepseek-reasoner"
+    prefer_deepseek: bool = True
+
+    # Pattern Analysis Settings
+    enable_pattern_analysis: bool = True
+    pattern_analysis_max_days: int = 30
+    pattern_analysis_cache_ttl: int = 3600  # 1 hour in seconds
 
     # Notifications
     resend_api_key: Optional[str] = None

@@ -1,0 +1,1 @@
+{"timestamp": "2026-01-09T09:15:06.733524", "event_type": "stage_complete", "data": {"timestamp": "2026-01-09T09:15:06.733524", "stage": "analyze", "success": true, "consults_used": 1, "elapsed_ms": 17010.360956192017, "output_summary": "{'provider': 'codex', 'content': '', 'ok': False, 'elapsed_ms': 17007.095098495483, 'structured': None}", "error": null}}
