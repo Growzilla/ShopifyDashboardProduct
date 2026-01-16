@@ -39,9 +39,15 @@ class Settings(BaseSettings):
     # Redis (for caching and rate limiting)
     redis_url: Optional[RedisDsn] = None
 
-    # Security
-    secret_key: str = Field(min_length=32)
-    encryption_key: str = Field(min_length=32)
+    # Security - defaults provided for development; MUST be overridden in production
+    secret_key: str = Field(
+        default="dev-secret-key-change-in-production-32chars",
+        min_length=32
+    )
+    encryption_key: str = Field(
+        default="dev-encrypt-key-change-in-production-32chars",
+        min_length=32
+    )
     jwt_algorithm: str = "HS256"
     jwt_expiration_hours: int = 24
 

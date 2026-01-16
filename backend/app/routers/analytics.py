@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, desc
 import structlog
 
-from app.core.database import get_db
+from app.core.database import get_db_session
 from app.models.analytics import (
     AnalyticsEvent,
     AnalyticsSession,
@@ -56,7 +56,7 @@ async def track_event(
     request: TrackEventRequest,
     http_request: Request,
     background_tasks: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db_session),
 ) -> TrackEventResponse:
     """
     Track a single analytics event.
@@ -157,7 +157,7 @@ async def track_batch(
     batch_request: BatchTrackRequest,
     http_request: Request,
     background_tasks: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db_session),
 ) -> BatchTrackResponse:
     """
     Track multiple events in a single request (optimized for SDK batching).
@@ -198,7 +198,7 @@ async def track_batch(
 async def get_analytics_summary(
     date_from: datetime,
     date_to: datetime,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db_session),
 ) -> AnalyticsSummaryResponse:
     """
     Get analytics summary for a date range.
@@ -375,7 +375,7 @@ async def get_analytics_summary(
 
 
 @router.get("/realtime", response_model=RealTimeStatsResponse)
-async def get_realtime_stats(db: AsyncSession = Depends(get_db)) -> RealTimeStatsResponse:
+async def get_realtime_stats(db: AsyncSession = Depends(get_db_session)) -> RealTimeStatsResponse:
     """
     Get real-time analytics statistics.
 
@@ -485,7 +485,7 @@ async def get_realtime_stats(db: AsyncSession = Depends(get_db)) -> RealTimeStat
 # Placeholder endpoints for additional features
 @router.post("/funnel/analyze", response_model=FunnelAnalysisResponse)
 async def analyze_funnel(
-    request: FunnelAnalysisRequest, db: AsyncSession = Depends(get_db)
+    request: FunnelAnalysisRequest, db: AsyncSession = Depends(get_db_session)
 ) -> FunnelAnalysisResponse:
     """Analyze conversion funnel (to be implemented)."""
     # TODO: Implement funnel analysis logic
@@ -493,7 +493,7 @@ async def analyze_funnel(
 
 
 @router.post("/heatmap", response_model=HeatmapResponse)
-async def get_heatmap(request: HeatmapRequest, db: AsyncSession = Depends(get_db)) -> HeatmapResponse:
+async def get_heatmap(request: HeatmapRequest, db: AsyncSession = Depends(get_db_session)) -> HeatmapResponse:
     """Get heatmap data for a page (to be implemented)."""
     # TODO: Implement heatmap data retrieval
     raise HTTPException(status_code=501, detail="Heatmap feature not yet implemented")
@@ -504,7 +504,7 @@ async def list_session_replays(
     date_from: datetime,
     date_to: datetime,
     limit: int = 50,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db_session),
 ) -> SessionReplayListResponse:
     """List session replays (to be implemented)."""
     # TODO: Implement session replay listing
@@ -516,7 +516,7 @@ async def classify_visitor_intent(
     session_id: str,
     visitor_id: str,
     time_on_site_seconds: int = 15,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db_session),
 ) -> dict:
     """
     Classify visitor intent using ML-powered behavioral analysis.
