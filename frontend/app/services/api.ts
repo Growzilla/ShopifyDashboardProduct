@@ -40,6 +40,8 @@ export function useDashboardStats() {
       fetchApi<DashboardStats>(`/dashboard/stats?shop_id=${shopId}`),
     staleTime: 60 * 1000, // 1 minute
     refetchInterval: 5 * 60 * 1000, // 5 minutes
+    // Disable during SSR - only fetch on client
+    enabled: typeof window !== "undefined",
   });
 }
 
@@ -54,6 +56,7 @@ export function useRevenueChart(period = "7d") {
         `/dashboard/revenue-chart?shop_id=${shopId}&period=${period}`
       ),
     staleTime: 5 * 60 * 1000, // 5 minutes
+    enabled: typeof window !== "undefined",
   });
 }
 
@@ -68,6 +71,7 @@ export function useInsights(page = 1, pageSize = 10) {
         `/insights?shop_id=${shopId}&page=${page}&page_size=${pageSize}`
       ),
     staleTime: 60 * 1000,
+    enabled: typeof window !== "undefined",
   });
 }
 
@@ -107,5 +111,6 @@ export function useDashboardSummary() {
         activeInsightsCount: number;
       }>(`/dashboard/summary?shop_id=${shopId}`),
     staleTime: 60 * 1000,
+    enabled: typeof window !== "undefined",
   });
 }
