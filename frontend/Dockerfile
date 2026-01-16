@@ -39,8 +39,8 @@ RUN npm ci --omit=dev
 
 COPY --from=build /app/build ./build
 
-# Render.com injects PORT env var - react-router-serve respects it
-ENV PORT=3000
-EXPOSE 3000
+# Render.com injects PORT env var at runtime - DO NOT hardcode
+# react-router-serve reads PORT from environment
+EXPOSE 10000
 
 CMD ["npm", "run", "start"]
