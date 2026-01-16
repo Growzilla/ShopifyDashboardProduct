@@ -45,15 +45,13 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expiration_hours: int = 24
 
-    # CORS
-    allowed_origins: List[str] = ["http://localhost:3000"]
+    # CORS - stored as comma-separated string to avoid JSON parsing issues
+    allowed_origins_str: str = Field(default="http://localhost:3000", alias="ALLOWED_ORIGINS")
 
-    @field_validator("allowed_origins", mode="before")
-    @classmethod
-    def parse_origins(cls, v: str | List[str]) -> List[str]:
-        if isinstance(v, str):
-            return [origin.strip() for origin in v.split(",") if origin.strip()]
-        return v
+    @property
+    def allowed_origins(self) -> List[str]:
+        """Parse allowed origins from comma-separated string."""
+        return [origin.strip() for origin in self.allowed_origins_str.split(",") if origin.strip()]
 
     # Shopify (optional for initial deployment - features disabled without these)
     shopify_api_key: Optional[str] = None
