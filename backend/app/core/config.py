@@ -55,18 +55,18 @@ class Settings(BaseSettings):
             return [origin.strip() for origin in v.split(",") if origin.strip()]
         return v
 
-    # Shopify
-    shopify_api_key: str
-    shopify_api_secret: str
+    # Shopify (optional for initial deployment - features disabled without these)
+    shopify_api_key: Optional[str] = None
+    shopify_api_secret: Optional[str] = None
     shopify_scopes: str = "read_products,read_orders,read_customers,read_inventory"
-    shopify_app_url: str
+    shopify_app_url: Optional[str] = None
 
     # OpenAI (Fallback - now optional)
     openai_api_key: Optional[str] = None
     openai_model: str = "gpt-4-turbo-preview"
 
-    # DeepSeek via OpenRouter (Primary AI Provider)
-    openrouter_api_key: str
+    # DeepSeek via OpenRouter (Primary AI Provider - optional for initial deployment)
+    openrouter_api_key: Optional[str] = None
     deepseek_model: str = "deepseek/deepseek-chat"
     deepseek_reasoner_model: str = "deepseek/deepseek-reasoner"
     prefer_deepseek: bool = True

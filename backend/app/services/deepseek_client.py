@@ -27,10 +27,15 @@ class DeepSeekClient:
     OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
     def __init__(self) -> None:
-        self.client = AsyncOpenAI(
-            api_key=settings.openrouter_api_key,
-            base_url=self.OPENROUTER_BASE_URL,
-        )
+        self._enabled = bool(settings.openrouter_api_key)
+        if self._enabled:
+            self.client = AsyncOpenAI(
+                api_key=settings.openrouter_api_key,
+                base_url=self.OPENROUTER_BASE_URL,
+            )
+        else:
+            self.client = None
+            logger.warning("OpenRouter API key not configured - AI features disabled")
         self.model = settings.deepseek_model
         self.reasoner_model = settings.deepseek_reasoner_model
 
@@ -61,6 +66,9 @@ class DeepSeekClient:
             ValueError: If response parsing fails
             RuntimeError: If max retries exceeded
         """
+        if not self._enabled or not self.client:
+            raise RuntimeError("DeepSeek client not configured - missing OPENROUTER_API_KEY")
+
         start_time = time.time()
         model = model or self.model
 

@@ -90,6 +90,10 @@ def verify_shopify_hmac(hmac_header: str, body: bytes) -> bool:
     """Verify Shopify webhook HMAC signature."""
     import hmac as hmac_lib
 
+    if not settings.shopify_api_secret:
+        logger.warning("Shopify API secret not configured, HMAC verification skipped")
+        return False
+
     computed_hmac = base64.b64encode(
         hmac_lib.new(
             settings.shopify_api_secret.encode(),
