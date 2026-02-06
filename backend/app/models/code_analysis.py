@@ -1,5 +1,11 @@
 """
 Code Analysis Models - Database models for code submission and AI analysis.
+
+==============================================================================
+MVP STATUS: DISABLED - These models are not imported in MVP.
+The code analysis feature is overengineered for initial launch.
+Tables exist in DB but are not used. To re-enable: uncomment in models/__init__.py
+==============================================================================
 """
 from datetime import datetime
 from enum import Enum

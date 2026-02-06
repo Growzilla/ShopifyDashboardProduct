@@ -1,5 +1,11 @@
 """
 Code Analysis API Routes - Endpoints for code submission and analysis results.
+
+==============================================================================
+MVP STATUS: DISABLED - This router is not registered in MVP.
+The code analysis feature is overengineered for initial launch.
+To re-enable: uncomment import in routers/__init__.py and main.py
+==============================================================================
 """
 from datetime import datetime, timezone
 from typing import Annotated, Any, Optional

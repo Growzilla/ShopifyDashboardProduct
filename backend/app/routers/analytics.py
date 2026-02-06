@@ -1,6 +1,12 @@
 """
 Analytics tracking API endpoints.
 High-performance event ingestion with privacy-first design.
+
+==============================================================================
+MVP STATUS: DISABLED - This router is not registered in MVP.
+The full analytics module is overengineered for initial launch.
+To re-enable: uncomment import in main.py
+==============================================================================
 """
 from datetime import datetime, timedelta
 from typing import Optional

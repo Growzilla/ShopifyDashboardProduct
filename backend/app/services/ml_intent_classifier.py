@@ -2,6 +2,12 @@
 ML-powered visitor intent classification service.
 Simplified MVP using rule-based heuristics + behavioral scoring.
 Production version would use TensorFlow.js models.
+
+==============================================================================
+MVP STATUS: DISABLED - This service is not imported/used in MVP.
+The ML intent classification is overengineered for initial launch.
+To re-enable: uncomment import in analytics router and services/__init__.py
+==============================================================================
 """
 from typing import Dict, List, Optional, Literal
 from datetime import datetime, timedelta

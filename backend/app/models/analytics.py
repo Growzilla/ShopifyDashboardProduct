@@ -1,5 +1,11 @@
 """
 Analytics data models for tracking web traffic and user behavior.
+
+==============================================================================
+MVP STATUS: DISABLED - These models are not imported in MVP.
+The full analytics module is overengineered for initial launch.
+Tables exist in DB but are not used. To re-enable: uncomment analytics router
+==============================================================================
 """
 from datetime import datetime
 from typing import Optional

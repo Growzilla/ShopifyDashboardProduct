@@ -1,6 +1,12 @@
 """
 AI Code Analyzer Service - DeepSeek/OpenAI integration for code analysis.
 
+==============================================================================
+MVP STATUS: DISABLED - This service is not imported/used in MVP.
+The code analysis feature is overengineered for initial launch.
+To re-enable: uncomment import in services/__init__.py and routers/__init__.py
+==============================================================================
+
 Provides:
 - Bug detection
 - Security vulnerability scanning

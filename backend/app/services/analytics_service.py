@@ -1,5 +1,11 @@
 """
 Analytics service - Helper functions for event processing and enrichment.
+
+==============================================================================
+MVP STATUS: DISABLED - This service is not imported/used in MVP.
+The full analytics module is overengineered for initial launch.
+To re-enable: uncomment analytics router in main.py
+==============================================================================
 """
 from typing import Dict, Any, Optional
 from datetime import datetime, timedelta

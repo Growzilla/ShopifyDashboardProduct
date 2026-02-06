@@ -14,13 +14,13 @@ from app.core.database import close_db, init_db
 from app.core.logging import configure_logging, get_logger
 from app.middleware import ErrorHandlerMiddleware, RequestIdMiddleware
 from app.routers import (
-    code_analysis_router,
+    # code_analysis_router,  # COMMENTED OUT FOR MVP - Overengineered feature
     dashboard_router,
     health_router,
     insights_router,
     shops_router,
 )
-from app.routers.analytics import router as analytics_router
+# from app.routers.analytics import router as analytics_router  # COMMENTED OUT FOR MVP - Overengineered feature
 
 # Configure logging before anything else
 configure_logging()
@@ -99,8 +99,9 @@ def create_app() -> FastAPI:
     app.include_router(shops_router, prefix="/api")
     app.include_router(insights_router, prefix="/api")
     app.include_router(dashboard_router, prefix="/api")
-    app.include_router(code_analysis_router, prefix="/api")
-    app.include_router(analytics_router)  # Analytics router has its own /api/v1/analytics prefix
+    # COMMENTED OUT FOR MVP - Overengineered features:
+    # app.include_router(code_analysis_router, prefix="/api")  # Code analysis feature - not core value
+    # app.include_router(analytics_router)  # Full analytics suite - overkill for MVP
 
     logger.info(
         "Application created",
