@@ -88,83 +88,87 @@ async def get_dashboard_stats(
         logger.info("No database connection, returning demo data", shop_id=str(shop_id))
         return _get_demo_stats()
 
-    # Check if shop exists
-    shop = await session.get(Shop, shop_id)
-    if not shop:
-        # Return demo data for development/testing
-        logger.info("Shop not found, returning demo data", shop_id=str(shop_id))
+    try:
+        # Check if shop exists
+        shop = await session.get(Shop, shop_id)
+        if not shop:
+            # Return demo data for development/testing
+            logger.info("Shop not found, returning demo data", shop_id=str(shop_id))
+            return _get_demo_stats()
+
+        today = date.today()
+        yesterday = today - timedelta(days=1)
+        week_start = today - timedelta(days=7)
+
+        # Get yesterday's metrics
+        yesterday_stmt = select(
+            func.sum(Order.total_price).label("revenue"),
+            func.count(Order.id).label("orders"),
+        ).where(
+            Order.shop_id == shop_id,
+            func.date(Order.processed_at) == yesterday,
+        )
+        yesterday_result = await session.execute(yesterday_stmt)
+        yesterday_row = yesterday_result.one()
+        yesterday_revenue = float(yesterday_row.revenue or 0)
+        yesterday_orders = int(yesterday_row.orders or 0)
+        yesterday_aov = yesterday_revenue / yesterday_orders if yesterday_orders > 0 else 0
+
+        # Get week metrics
+        week_stmt = select(
+            func.sum(Order.total_price).label("revenue"),
+            func.count(Order.id).label("orders"),
+        ).where(
+            Order.shop_id == shop_id,
+            func.date(Order.processed_at) >= week_start,
+            func.date(Order.processed_at) < today,
+        )
+        week_result = await session.execute(week_stmt)
+        week_row = week_result.one()
+        week_revenue = float(week_row.revenue or 0)
+        week_orders = int(week_row.orders or 0)
+
+        # If no data, return demo data
+        if week_revenue == 0 and yesterday_revenue == 0:
+            logger.info("No order data, returning demo data", shop_id=str(shop_id))
+            return _get_demo_stats()
+
+        # Calculate averages (7 days)
+        week_avg_revenue = week_revenue / 7
+        week_avg_orders = week_orders / 7
+        week_avg_aov = week_revenue / week_orders if week_orders > 0 else 0
+
+        # Calculate deltas (percentage change)
+        revenue_delta = (
+            ((yesterday_revenue - week_avg_revenue) / week_avg_revenue * 100)
+            if week_avg_revenue > 0
+            else 0
+        )
+        orders_delta = (
+            ((yesterday_orders - week_avg_orders) / week_avg_orders * 100)
+            if week_avg_orders > 0
+            else 0
+        )
+        aov_delta = (
+            ((yesterday_aov - week_avg_aov) / week_avg_aov * 100)
+            if week_avg_aov > 0
+            else 0
+        )
+
+        return DashboardStats(
+            yesterday_revenue=round(yesterday_revenue, 2),
+            week_avg_revenue=round(week_avg_revenue, 2),
+            yesterday_orders=yesterday_orders,
+            week_avg_orders=int(week_avg_orders),
+            yesterday_aov=round(yesterday_aov, 2),
+            week_avg_aov=round(week_avg_aov, 2),
+            revenue_delta=round(revenue_delta, 1),
+            orders_delta=round(orders_delta, 1),
+            aov_delta=round(aov_delta, 1),
+        )
+    except Exception as e:
+        logger.error("Dashboard stats error, returning demo data", error=str(e), shop_id=str(shop_id))
         return _get_demo_stats()
-
-    today = date.today()
-    yesterday = today - timedelta(days=1)
-    week_start = today - timedelta(days=7)
-
-    # Get yesterday's metrics
-    yesterday_stmt = select(
-        func.sum(Order.total_price).label("revenue"),
-        func.count(Order.id).label("orders"),
-    ).where(
-        Order.shop_id == shop_id,
-        func.date(Order.processed_at) == yesterday,
-    )
-    yesterday_result = await session.execute(yesterday_stmt)
-    yesterday_row = yesterday_result.one()
-    yesterday_revenue = float(yesterday_row.revenue or 0)
-    yesterday_orders = int(yesterday_row.orders or 0)
-    yesterday_aov = yesterday_revenue / yesterday_orders if yesterday_orders > 0 else 0
-
-    # Get week metrics
-    week_stmt = select(
-        func.sum(Order.total_price).label("revenue"),
-        func.count(Order.id).label("orders"),
-    ).where(
-        Order.shop_id == shop_id,
-        func.date(Order.processed_at) >= week_start,
-        func.date(Order.processed_at) < today,
-    )
-    week_result = await session.execute(week_stmt)
-    week_row = week_result.one()
-    week_revenue = float(week_row.revenue or 0)
-    week_orders = int(week_row.orders or 0)
-
-    # If no data, return demo data
-    if week_revenue == 0 and yesterday_revenue == 0:
-        logger.info("No order data, returning demo data", shop_id=str(shop_id))
-        return _get_demo_stats()
-
-    # Calculate averages (7 days)
-    week_avg_revenue = week_revenue / 7
-    week_avg_orders = week_orders / 7
-    week_avg_aov = week_revenue / week_orders if week_orders > 0 else 0
-
-    # Calculate deltas (percentage change)
-    revenue_delta = (
-        ((yesterday_revenue - week_avg_revenue) / week_avg_revenue * 100)
-        if week_avg_revenue > 0
-        else 0
-    )
-    orders_delta = (
-        ((yesterday_orders - week_avg_orders) / week_avg_orders * 100)
-        if week_avg_orders > 0
-        else 0
-    )
-    aov_delta = (
-        ((yesterday_aov - week_avg_aov) / week_avg_aov * 100)
-        if week_avg_aov > 0
-        else 0
-    )
-
-    return DashboardStats(
-        yesterday_revenue=round(yesterday_revenue, 2),
-        week_avg_revenue=round(week_avg_revenue, 2),
-        yesterday_orders=yesterday_orders,
-        week_avg_orders=int(week_avg_orders),
-        yesterday_aov=round(yesterday_aov, 2),
-        week_avg_aov=round(week_avg_aov, 2),
-        revenue_delta=round(revenue_delta, 1),
-        orders_delta=round(orders_delta, 1),
-        aov_delta=round(aov_delta, 1),
-    )
 
 
 @router.get("/revenue-chart", response_model=RevenueChartData)
@@ -179,57 +183,61 @@ async def get_revenue_chart(
         logger.info("No database connection, returning demo chart", shop_id=str(shop_id))
         return _get_demo_chart_data()
 
-    days = {"7d": 7, "30d": 30, "90d": 90}.get(period, 7)
-    start_date = date.today() - timedelta(days=days)
+    try:
+        days = {"7d": 7, "30d": 30, "90d": 90}.get(period, 7)
+        start_date = date.today() - timedelta(days=days)
 
-    # Check if shop exists
-    shop = await session.get(Shop, shop_id)
-    if not shop:
-        logger.info("Shop not found, returning demo chart", shop_id=str(shop_id))
+        # Check if shop exists
+        shop = await session.get(Shop, shop_id)
+        if not shop:
+            logger.info("Shop not found, returning demo chart", shop_id=str(shop_id))
+            return _get_demo_chart_data()
+
+        # Get daily aggregates
+        stmt = (
+            select(
+                func.date(Order.processed_at).label("day"),
+                func.sum(Order.total_price).label("revenue"),
+                func.count(Order.id).label("orders"),
+            )
+            .where(
+                Order.shop_id == shop_id,
+                func.date(Order.processed_at) >= start_date,
+            )
+            .group_by(func.date(Order.processed_at))
+            .order_by(func.date(Order.processed_at))
+        )
+
+        result = await session.execute(stmt)
+        rows = result.all()
+
+        # If no data, return demo chart
+        if not rows:
+            logger.info("No chart data, returning demo", shop_id=str(shop_id))
+            return _get_demo_chart_data()
+
+        data = [
+            RevenueDataPoint(
+                date=row.day,
+                revenue=float(row.revenue or 0),
+                orders=int(row.orders or 0),
+                aov=float(row.revenue or 0) / int(row.orders or 1) if row.orders else 0,
+            )
+            for row in rows
+        ]
+
+        total_revenue = sum(d.revenue for d in data)
+        total_orders = sum(d.orders for d in data)
+
+        return RevenueChartData(
+            data=data,
+            period=period,
+            total_revenue=round(total_revenue, 2),
+            total_orders=total_orders,
+        )
+    except Exception as e:
+        logger.error("Revenue chart error, returning demo data", error=str(e), shop_id=str(shop_id))
         return _get_demo_chart_data()
-
-    # Get daily aggregates
-    stmt = (
-        select(
-            func.date(Order.processed_at).label("day"),
-            func.sum(Order.total_price).label("revenue"),
-            func.count(Order.id).label("orders"),
-        )
-        .where(
-            Order.shop_id == shop_id,
-            func.date(Order.processed_at) >= start_date,
-        )
-        .group_by(func.date(Order.processed_at))
-        .order_by(func.date(Order.processed_at))
-    )
-
-    result = await session.execute(stmt)
-    rows = result.all()
-
-    # If no data, return demo chart
-    if not rows:
-        logger.info("No chart data, returning demo", shop_id=str(shop_id))
-        return _get_demo_chart_data()
-
-    data = [
-        RevenueDataPoint(
-            date=row.day,
-            revenue=float(row.revenue or 0),
-            orders=int(row.orders or 0),
-            aov=float(row.revenue or 0) / int(row.orders or 1) if row.orders else 0,
-        )
-        for row in rows
-    ]
-
-    total_revenue = sum(d.revenue for d in data)
-    total_orders = sum(d.orders for d in data)
-
-    return RevenueChartData(
-        data=data,
-        period=period,
-        total_revenue=round(total_revenue, 2),
-        total_orders=total_orders,
-    )
 
 
 @router.get("/top-products")
