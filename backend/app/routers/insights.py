@@ -119,19 +119,7 @@ async def list_insights(
             limit=page_size,
         )
 
-        # If no insights found, return demo insight for MVP
-        if total == 0 and page == 1:
-            logger.info("No insights found, returning demo insight", shop_id=str(shop_id))
-            demo = _get_demo_insight()
-            # Update shop_id to match request
-            demo.shop_id = shop_id
-            return PaginatedInsightsResponse(
-                items=[demo],
-                total=1,
-                page=1,
-                page_size=page_size,
-                has_more=False,
-            )
+        # Empty insights is valid — store may not have enough data yet
 
         items = [InsightResponse.model_validate(i) for i in insights]
 
@@ -144,12 +132,9 @@ async def list_insights(
         )
     except Exception as e:
         logger.error("Failed to fetch insights", error=str(e), shop_id=str(shop_id))
-        # Return demo insight on error to keep MVP working
-        demo = _get_demo_insight()
-        demo.shop_id = shop_id
         return PaginatedInsightsResponse(
-            items=[demo],
-            total=1,
+            items=[],
+            total=0,
             page=1,
             page_size=page_size,
             has_more=False,
@@ -240,32 +225,20 @@ async def get_insight_stats(
     repo: Annotated[InsightRepository | None, Depends(get_insight_repository)],
 ) -> dict:
     """Get insight statistics for a shop."""
-    # Return demo stats if no database connection
-    demo_stats = {
-        "total": 1,
-        "active": 1,
+    zero_stats = {
+        "total": 0,
+        "active": 0,
         "dismissed": 0,
         "actioned": 0,
-        "by_severity": {"high": 1},
-        "by_type": {"conversion_opportunity": 1},
+        "by_severity": {},
+        "by_type": {},
     }
 
     if repo is None:
-        return demo_stats
+        return zero_stats
 
     try:
         stats = await repo.get_insight_stats(shop_id)
-        # If no stats, return demo stats
-        if stats.get("total", 0) == 0:
-            return demo_stats
         return stats
     except Exception:
-        # Return demo stats on error
-        return {
-            "total": 1,
-            "active": 1,
-            "dismissed": 0,
-            "actioned": 0,
-            "by_severity": {"high": 1},
-            "by_type": {"conversion_opportunity": 1},
-        }
+        return zero_stats

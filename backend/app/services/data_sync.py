@@ -46,6 +46,12 @@ async def sync_shop_data(shop_id: UUID, full_sync: bool = False) -> None:
             orders_synced = await _sync_orders(session, client, shop)
             logger.info("Orders synced", shop_id=str(shop_id), count=orders_synced)
 
+            # Generate insights from synced data
+            from app.services.insight_generator import generate_insights
+
+            insights_created = await generate_insights(session, shop_id)
+            logger.info("Insights generated after sync", shop_id=str(shop_id), count=insights_created)
+
             # Mark sync complete
             shop.sync_status = "completed"
             shop.last_sync_at = datetime.now(timezone.utc)
@@ -56,6 +62,7 @@ async def sync_shop_data(shop_id: UUID, full_sync: bool = False) -> None:
                 shop_id=str(shop_id),
                 products=products_synced,
                 orders=orders_synced,
+                insights=insights_created,
             )
 
         except ShopifyAPIError as e:

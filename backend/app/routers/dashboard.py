@@ -2,7 +2,8 @@
 Dashboard API routes for analytics data.
 
 MVP Analytics Dashboard - provides stats, charts, and summary endpoints.
-Includes demo mode fallback for development and testing.
+Returns real zeros for empty stores instead of demo data.
+Demo mode only activates when database is completely unavailable.
 """
 from datetime import date, timedelta
 from typing import Annotated
@@ -29,12 +30,34 @@ logger = get_logger(__name__)
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
-# Demo shop UUID for development/testing
-DEMO_SHOP_UUID = UUID("00000000-0000-0000-0000-000000000001")
+
+def _get_zero_stats() -> DashboardStats:
+    """Return zero statistics for stores with no order data."""
+    return DashboardStats(
+        yesterday_revenue=0,
+        week_avg_revenue=0,
+        yesterday_orders=0,
+        week_avg_orders=0,
+        yesterday_aov=0,
+        week_avg_aov=0,
+        revenue_delta=0,
+        orders_delta=0,
+        aov_delta=0,
+    )
+
+
+def _get_empty_chart_data(period: str = "7d") -> RevenueChartData:
+    """Return empty chart data for stores with no orders."""
+    return RevenueChartData(
+        data=[],
+        period=period,
+        total_revenue=0,
+        total_orders=0,
+    )
 
 
 def _get_demo_stats() -> DashboardStats:
-    """Return demo statistics for testing."""
+    """Return demo statistics only when database is unavailable."""
     return DashboardStats(
         yesterday_revenue=1247.50,
         week_avg_revenue=1089.32,
@@ -49,12 +72,11 @@ def _get_demo_stats() -> DashboardStats:
 
 
 def _get_demo_chart_data() -> RevenueChartData:
-    """Return demo chart data for testing."""
+    """Return demo chart data only when database is unavailable."""
     today = date.today()
     data = []
     for i in range(7):
         d = today - timedelta(days=6 - i)
-        # Simulate some variance
         base_revenue = 800 + (i * 50) + ((i % 3) * 100)
         base_orders = 10 + (i % 5)
         data.append(
@@ -81,9 +103,10 @@ async def get_dashboard_stats(
     """
     Get dashboard statistics comparing yesterday to weekly average.
 
-    Returns demo data if shop doesn't exist or database unavailable (for development).
+    Returns demo data only if database is unavailable.
+    Returns real zeros for stores with no orders.
     """
-    # Return demo data if no database connection
+    # Return demo data only if no database connection
     if session is None:
         logger.info("No database connection, returning demo data", shop_id=str(shop_id))
         return _get_demo_stats()
@@ -92,9 +115,8 @@ async def get_dashboard_stats(
         # Check if shop exists
         shop = await session.get(Shop, shop_id)
         if not shop:
-            # Return demo data for development/testing
-            logger.info("Shop not found, returning demo data", shop_id=str(shop_id))
-            return _get_demo_stats()
+            logger.info("Shop not found, returning zero stats", shop_id=str(shop_id))
+            return _get_zero_stats()
 
         today = date.today()
         yesterday = today - timedelta(days=1)
@@ -128,11 +150,7 @@ async def get_dashboard_stats(
         week_revenue = float(week_row.revenue or 0)
         week_orders = int(week_row.orders or 0)
 
-        # If no data, return demo data
-        if week_revenue == 0 and yesterday_revenue == 0:
-            logger.info("No order data, returning demo data", shop_id=str(shop_id))
-            return _get_demo_stats()
-
+        # Real zeros are valid — an empty store is not a reason to show fake data
         # Calculate averages (7 days)
         week_avg_revenue = week_revenue / 7
         week_avg_orders = week_orders / 7
@@ -178,7 +196,7 @@ async def get_revenue_chart(
     period: str = Query("7d", description="Period: 7d, 30d, 90d"),
 ) -> RevenueChartData:
     """Get revenue chart data for the specified period."""
-    # Return demo data if no database connection
+    # Return demo data only if no database connection
     if session is None:
         logger.info("No database connection, returning demo chart", shop_id=str(shop_id))
         return _get_demo_chart_data()
@@ -190,8 +208,8 @@ async def get_revenue_chart(
         # Check if shop exists
         shop = await session.get(Shop, shop_id)
         if not shop:
-            logger.info("Shop not found, returning demo chart", shop_id=str(shop_id))
-            return _get_demo_chart_data()
+            logger.info("Shop not found, returning empty chart", shop_id=str(shop_id))
+            return _get_empty_chart_data(period)
 
         # Get daily aggregates
         stmt = (
@@ -211,10 +229,10 @@ async def get_revenue_chart(
         result = await session.execute(stmt)
         rows = result.all()
 
-        # If no data, return demo chart
+        # Empty result is valid — return empty chart, not demo data
         if not rows:
-            logger.info("No chart data, returning demo", shop_id=str(shop_id))
-            return _get_demo_chart_data()
+            logger.info("No chart data for shop, returning empty chart", shop_id=str(shop_id))
+            return _get_empty_chart_data(period)
 
         data = [
             RevenueDataPoint(
@@ -248,34 +266,9 @@ async def get_top_products(
     period: str = Query("30d", description="Period: 7d, 30d, 90d"),
 ) -> dict:
     """Get top selling products for the period."""
-    # Return demo products if no database connection
+    # Return empty list if no database connection
     if session is None:
-        return {
-            "products": [
-                TopProduct(
-                    id="demo-1",
-                    title="Premium Widget Pro",
-                    revenue=2450.00,
-                    units_sold=49,
-                    image_url=None,
-                ),
-                TopProduct(
-                    id="demo-2",
-                    title="Essential Kit Bundle",
-                    revenue=1890.50,
-                    units_sold=35,
-                    image_url=None,
-                ),
-                TopProduct(
-                    id="demo-3",
-                    title="Starter Pack",
-                    revenue=1245.00,
-                    units_sold=83,
-                    image_url=None,
-                ),
-            ],
-            "period": period,
-        }
+        return {"products": [], "period": period}
 
     days = {"7d": 7, "30d": 30, "90d": 90}.get(period, 30)
     start_date = date.today() - timedelta(days=days)
@@ -283,33 +276,7 @@ async def get_top_products(
     # Check if shop exists
     shop = await session.get(Shop, shop_id)
     if not shop:
-        # Return demo products
-        return {
-            "products": [
-                TopProduct(
-                    id="demo-1",
-                    title="Premium Widget Pro",
-                    revenue=2450.00,
-                    units_sold=49,
-                    image_url=None,
-                ),
-                TopProduct(
-                    id="demo-2",
-                    title="Essential Kit Bundle",
-                    revenue=1890.50,
-                    units_sold=35,
-                    image_url=None,
-                ),
-                TopProduct(
-                    id="demo-3",
-                    title="Starter Pack",
-                    revenue=1245.00,
-                    units_sold=83,
-                    image_url=None,
-                ),
-            ],
-            "period": period,
-        }
+        return {"products": [], "period": period}
 
     # Get orders with line items
     stmt = select(Order).where(
@@ -375,9 +342,9 @@ async def get_dashboard_summary(
     revenue_chart = await get_revenue_chart(shop_id, session, "7d")
     top_products_response = await get_top_products(shop_id, session, 5, "30d")
 
-    # Get active insights count (demo mode: always 1)
+    # Get active insights count
     if session is None:
-        active_insights_count = 1
+        active_insights_count = 0
     else:
         insights_stmt = select(func.count()).select_from(Insight).where(
             Insight.shop_id == shop_id,

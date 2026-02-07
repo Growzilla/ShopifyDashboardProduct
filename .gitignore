@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Build outputs
+build/
+dist/
+.cache/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# IDE/Editor
+.vscode/
+.idea/
+
+# Reference projects - not needed in repo
+TestIgnore/
+retail-os/
+
+# Debug/session notes (may contain secrets)
+feb7.md
+
+# Traces and logs
+.maestro-traces/
+
+# React Router generated files
+.react-router/

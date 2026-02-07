@@ -25,23 +25,37 @@ router = APIRouter(prefix="/shops", tags=["shops"])
 
 
 async def get_shop_repository(
-    session: Annotated[AsyncSession, Depends(get_db_session)],
-) -> ShopRepository:
-    """Dependency to get shop repository."""
+    session: Annotated[AsyncSession | None, Depends(get_db_session)],
+) -> ShopRepository | None:
+    """
+    Dependency to get shop repository.
+
+    Returns None if database is not available.
+    """
+    if session is None:
+        return None
     return ShopRepository(session)
 
 
 @router.post("", response_model=ShopResponse, status_code=status.HTTP_201_CREATED)
 async def create_shop(
     shop_data: ShopCreate,
-    repo: Annotated[ShopRepository, Depends(get_shop_repository)],
+    background_tasks: BackgroundTasks,
+    repo: Annotated[ShopRepository | None, Depends(get_shop_repository)],
 ) -> ShopResponse:
     """
     Register a shop after OAuth completion.
 
     Called by the auth-proxy after successful Shopify OAuth.
     Encrypts and stores the access token securely.
+    Automatically triggers a data sync after registration.
     """
+    if repo is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database unavailable",
+        )
+
     encrypted_token = encrypt_token(shop_data.access_token)
 
     shop, created = await repo.create_or_update(
@@ -53,15 +67,27 @@ async def create_shop(
     action = "Created" if created else "Updated"
     logger.info(f"{action} shop", domain=shop_data.domain)
 
+    # Auto-trigger data sync after shop registration
+    from app.services.data_sync import sync_shop_data
+
+    background_tasks.add_task(sync_shop_data, shop_id=shop.id)
+    logger.info("Auto-sync triggered for shop", domain=shop_data.domain, shop_id=str(shop.id))
+
     return ShopResponse.model_validate(shop)
 
 
 @router.get("/{shop_domain}", response_model=ShopResponse)
 async def get_shop(
     shop_domain: str,
-    repo: Annotated[ShopRepository, Depends(get_shop_repository)],
+    repo: Annotated[ShopRepository | None, Depends(get_shop_repository)],
 ) -> ShopResponse:
     """Get shop details by domain."""
+    if repo is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database unavailable",
+        )
+
     shop = await repo.get_by_domain(shop_domain)
     if not shop:
         raise HTTPException(
@@ -75,9 +101,15 @@ async def get_shop(
 async def update_shop(
     shop_domain: str,
     shop_update: ShopUpdate,
-    repo: Annotated[ShopRepository, Depends(get_shop_repository)],
+    repo: Annotated[ShopRepository | None, Depends(get_shop_repository)],
 ) -> ShopResponse:
     """Update shop settings."""
+    if repo is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database unavailable",
+        )
+
     shop = await repo.get_by_domain(shop_domain)
     if not shop:
         raise HTTPException(
@@ -95,13 +127,19 @@ async def update_shop(
 @router.delete("/{shop_domain}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_shop(
     shop_domain: str,
-    repo: Annotated[ShopRepository, Depends(get_shop_repository)],
+    repo: Annotated[ShopRepository | None, Depends(get_shop_repository)],
 ) -> None:
     """
     Delete shop and all associated data.
 
     Called on app uninstall. Implements GDPR data deletion.
     """
+    if repo is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database unavailable",
+        )
+
     shop = await repo.get_by_domain(shop_domain)
     if shop:
         await repo.delete(shop)
@@ -113,9 +151,15 @@ async def trigger_sync(
     shop_id: UUID,
     sync_request: ShopSyncRequest,
     background_tasks: BackgroundTasks,
-    repo: Annotated[ShopRepository, Depends(get_shop_repository)],
+    repo: Annotated[ShopRepository | None, Depends(get_shop_repository)],
 ) -> ShopSyncResponse:
     """Trigger a data sync for a shop."""
+    if repo is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database unavailable",
+        )
+
     shop = await repo.get_by_id(shop_id)
     if not shop:
         raise HTTPException(
