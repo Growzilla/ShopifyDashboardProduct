@@ -82,3 +82,70 @@ async def metrics() -> dict:
         "app_version": settings.app_version,
         "environment": settings.environment,
     }
+
+
+@router.post("/admin/bootstrap-shop")
+async def bootstrap_shop(
+    shop_domain: str,
+    admin_key: str,
+    session: AsyncSession = Depends(get_db_session),
+) -> dict:
+    """
+    Temporary admin endpoint: reads Shopify access token from the Prisma
+    Session table (shared PostgreSQL) and registers + syncs the shop.
+    Requires the SECRET_KEY as admin_key for authorization.
+    """
+    from app.core.config import settings as app_settings
+
+    if admin_key != app_settings.secret_key:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=403, detail="Invalid admin key")
+
+    if session is None:
+        return {"error": "Database unavailable"}
+
+    # Read access token from Prisma Session table
+    result = await session.execute(
+        text(
+            'SELECT "accessToken", shop, scope FROM "Session" '
+            "WHERE shop = :domain AND \"isOnline\" = false "
+            "ORDER BY expires DESC NULLS LAST LIMIT 1"
+        ),
+        {"domain": shop_domain},
+    )
+    row = result.first()
+
+    if not row:
+        return {"error": f"No offline session found for {shop_domain}", "hint": "Has the store owner completed the OAuth install?"}
+
+    access_token = row[0]
+    scopes = row[2] or "read_products,read_orders"
+
+    # Register shop in backend
+    from app.core.security import encrypt_token
+    from app.repositories.shop import ShopRepository
+
+    repo = ShopRepository(session)
+    encrypted = encrypt_token(access_token)
+    shop, created = await repo.create_or_update(
+        domain=shop_domain,
+        access_token_encrypted=encrypted,
+        scopes=scopes,
+    )
+    await session.commit()
+
+    # Trigger data sync
+    from app.services.data_sync import sync_shop_data
+    import asyncio
+    asyncio.create_task(sync_shop_data(shop_id=shop.id))
+
+    return {
+        "status": "ok",
+        "shop_id": str(shop.id),
+        "domain": shop_domain,
+        "created": created,
+        "scopes": scopes,
+        "sync_triggered": True,
+        "token_found": True,
+        "token_preview": access_token[:8] + "...",
+    }
