@@ -24,7 +24,7 @@ class ShopifyGraphQLClient:
     - Proper error handling and logging
     """
 
-    GRAPHQL_ENDPOINT = "https://{domain}/admin/api/2024-01/graphql.json"
+    GRAPHQL_ENDPOINT = "https://{domain}/admin/api/2025-01/graphql.json"
     MAX_RETRIES = 3
     RATE_LIMIT_DELAY = 0.5  # seconds between calls
 

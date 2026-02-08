@@ -134,10 +134,16 @@ async def bootstrap_shop(
     )
     await session.commit()
 
-    # Trigger data sync
-    from app.services.data_sync import sync_shop_data
-    import asyncio
-    asyncio.create_task(sync_shop_data(shop_id=shop.id))
+    # Run data sync inline so we get error details
+    sync_result = {"status": "not_attempted"}
+    try:
+        from app.services.data_sync import sync_shop_data
+        await sync_shop_data(shop_id=shop.id)
+        # Refresh shop to get updated sync status
+        await session.refresh(shop)
+        sync_result = {"status": shop.sync_status, "last_sync": str(shop.last_sync_at)}
+    except Exception as e:
+        sync_result = {"status": "error", "error": str(e), "type": type(e).__name__}
 
     return {
         "status": "ok",
@@ -145,7 +151,7 @@ async def bootstrap_shop(
         "domain": shop_domain,
         "created": created,
         "scopes": scopes,
-        "sync_triggered": True,
         "token_found": True,
         "token_preview": access_token[:8] + "...",
+        "sync": sync_result,
     }
