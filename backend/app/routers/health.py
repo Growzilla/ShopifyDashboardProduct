@@ -134,16 +134,31 @@ async def bootstrap_shop(
     )
     await session.commit()
 
-    # Run data sync inline so we get error details
+    # Test Shopify API directly to get error details
     sync_result = {"status": "not_attempted"}
     try:
+        from app.services.shopify_client import ShopifyGraphQLClient
+        client = ShopifyGraphQLClient(
+            access_token_encrypted=shop.access_token_encrypted,
+            shop_domain=shop_domain,
+        )
+        # Test with a simple query first
+        shop_info = await client.get_shop_info()
+        sync_result["shopify_api"] = "connected"
+        sync_result["shop_info"] = shop_info
+
+        # Now try actual sync
         from app.services.data_sync import sync_shop_data
         await sync_shop_data(shop_id=shop.id)
-        # Refresh shop to get updated sync status
         await session.refresh(shop)
-        sync_result = {"status": shop.sync_status, "last_sync": str(shop.last_sync_at)}
+        sync_result["status"] = shop.sync_status
+        sync_result["last_sync"] = str(shop.last_sync_at)
     except Exception as e:
-        sync_result = {"status": "error", "error": str(e), "type": type(e).__name__}
+        import traceback
+        sync_result["status"] = "error"
+        sync_result["error"] = str(e)
+        sync_result["type"] = type(e).__name__
+        sync_result["traceback"] = traceback.format_exc()[-500:]
 
     return {
         "status": "ok",
