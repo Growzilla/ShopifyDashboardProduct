@@ -137,22 +137,39 @@ async def bootstrap_shop(
     # Test Shopify API directly to get error details
     sync_result = {"status": "not_attempted"}
     try:
-        from app.services.shopify_client import ShopifyGraphQLClient
-        client = ShopifyGraphQLClient(
-            access_token_encrypted=shop.access_token_encrypted,
-            shop_domain=shop_domain,
-        )
-        # Test with a simple query first
-        shop_info = await client.get_shop_info()
-        sync_result["shopify_api"] = "connected"
-        sync_result["shop_info"] = shop_info
+        # Verify token decryption
+        from app.core.security import decrypt_token
+        decrypted = decrypt_token(shop.access_token_encrypted)
+        sync_result["token_decrypted_preview"] = decrypted[:12] + "..."
+        sync_result["token_length"] = len(decrypted)
 
-        # Now try actual sync
-        from app.services.data_sync import sync_shop_data
-        await sync_shop_data(shop_id=shop.id)
-        await session.refresh(shop)
-        sync_result["status"] = shop.sync_status
-        sync_result["last_sync"] = str(shop.last_sync_at)
+        # Test raw API call to verify token
+        import httpx
+        async with httpx.AsyncClient(timeout=15.0) as http_client:
+            test_resp = await http_client.post(
+                f"https://{shop_domain}/admin/api/2025-01/graphql.json",
+                json={"query": "{ shop { name myshopifyDomain } }"},
+                headers={
+                    "Content-Type": "application/json",
+                    "X-Shopify-Access-Token": decrypted,
+                },
+            )
+            sync_result["shopify_raw_status"] = test_resp.status_code
+            sync_result["shopify_raw_body"] = test_resp.text[:300]
+
+        # Also try with the raw token from session (not encrypted)
+        async with httpx.AsyncClient(timeout=15.0) as http_client:
+            test_resp2 = await http_client.post(
+                f"https://{shop_domain}/admin/api/2025-01/graphql.json",
+                json={"query": "{ shop { name myshopifyDomain } }"},
+                headers={
+                    "Content-Type": "application/json",
+                    "X-Shopify-Access-Token": access_token,
+                },
+            )
+            sync_result["raw_token_status"] = test_resp2.status_code
+            sync_result["raw_token_body"] = test_resp2.text[:300]
+
     except Exception as e:
         import traceback
         sync_result["status"] = "error"
