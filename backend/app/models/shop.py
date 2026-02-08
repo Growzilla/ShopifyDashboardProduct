@@ -12,7 +12,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
 
 if TYPE_CHECKING:
-    from app.models.code_analysis import CodeSubmission
     from app.models.insight import Insight
     from app.models.order import Order
     from app.models.product import Product
@@ -90,11 +89,12 @@ class Shop(Base):
         back_populates="shop",
         cascade="all, delete-orphan",
     )
-    code_submissions: Mapped[list["CodeSubmission"]] = relationship(
-        "CodeSubmission",
-        back_populates="shop",
-        cascade="all, delete-orphan",
-    )
+    # COMMENTED OUT FOR MVP - CodeSubmission model not imported
+    # code_submissions: Mapped[list["CodeSubmission"]] = relationship(
+    #     "CodeSubmission",
+    #     back_populates="shop",
+    #     cascade="all, delete-orphan",
+    # )
 
     def __repr__(self) -> str:
         return f"<Shop {self.domain}>"
