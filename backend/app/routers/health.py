@@ -177,6 +177,17 @@ async def bootstrap_shop(
         sync_result["type"] = type(e).__name__
         sync_result["traceback"] = traceback.format_exc()[-500:]
 
+    # Trigger data sync in background
+    sync_triggered = False
+    try:
+        from app.services.data_sync import sync_shop_data
+        import asyncio
+
+        asyncio.get_event_loop().create_task(sync_shop_data(shop_id=shop.id))
+        sync_triggered = True
+    except Exception as e:
+        sync_result["sync_trigger_error"] = str(e)
+
     return {
         "status": "ok",
         "shop_id": str(shop.id),
@@ -186,4 +197,5 @@ async def bootstrap_shop(
         "token_found": True,
         "token_preview": access_token[:8] + "...",
         "sync": sync_result,
+        "sync_triggered": sync_triggered,
     }
